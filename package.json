@@ -7,7 +7,9 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "npm run test:unit",
+    "test:unit": "jest",
+    "test:unit:watch": "jest --watchAll"
   },
   "repository": {
     "type": "git",
@@ -18,5 +20,19 @@
   "bugs": {
     "url": "https://github.com/mintzo/aircall-pager/issues"
   },
-  "homepage": "https://github.com/mintzo/aircall-pager#readme"
+  "homepage": "https://github.com/mintzo/aircall-pager#readme",
+  "devDependencies": {
+    "@types/jest": "^27.0.2",
+    "@types/sinon": "^10.0.4",
+    "eslint": "^8.0.1",
+    "jest": "^27.3.1",
+    "sinon": "^11.1.2",
+    "ts-jest": "^27.0.7",
+    "ts-node": "^10.3.0",
+    "typescript": "^4.4.4"
+  },
+  "dependencies": {
+    "reflect-metadata": "^0.1.13",
+    "tsyringe": "^4.6.0"
+  }
 }

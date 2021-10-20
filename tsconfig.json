@@ -11,13 +11,15 @@
         "**/*.test.ts"
     ],
     "compilerOptions": {
-        "target": "es2020",
+        "target": "es2019",
         "module": "CommonJS",
         "sourceMap": false,
         "removeComments": true,
         "strict": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true
+        "forceConsistentCasingInFileNames": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
     }
 }
