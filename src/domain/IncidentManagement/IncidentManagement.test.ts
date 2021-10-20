@@ -7,7 +7,7 @@ import { Logger } from '../../infrastructure/Logger';
 import {
   IncidentReportRepository,
   IncidentStatus,
-} from '../IncidentReportRepository';
+} from '../Repositories/IncidentReportRepository';
 import { DI_SYMBOLS } from '../../DI_SYMBOLS';
 
 describe('Incident Management', () => {

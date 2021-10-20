@@ -24,6 +24,7 @@
   "devDependencies": {
     "@types/jest": "^27.0.2",
     "@types/sinon": "^10.0.4",
+    "@types/uuid": "^8.3.1",
     "eslint": "^8.0.1",
     "jest": "^27.3.1",
     "sinon": "^11.1.2",
@@ -33,6 +34,7 @@
   },
   "dependencies": {
     "reflect-metadata": "^0.1.13",
-    "tsyringe": "^4.6.0"
+    "tsyringe": "^4.6.0",
+    "uuid": "^8.3.2"
   }
 }

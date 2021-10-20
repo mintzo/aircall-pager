@@ -1,6 +1,6 @@
 import { inject, singleton } from 'tsyringe';
 import { DI_SYMBOLS } from '../../DI_SYMBOLS';
-import { Incident, IncidentReportRepository, IncidentStatus } from '../IncidentReportRepository';
+import { IncidentReport, IncidentReportRepository, IncidentStatus } from '../Repositories/IncidentReportRepository';
 import { Logger } from '../../infrastructure/Logger';
 
 @singleton()
@@ -11,7 +11,7 @@ export class IncidentManagement {
     private readonly incidentReportRepository: IncidentReportRepository,
   ) {}
 
-  async acknowledgeIncident(incidentId: string): Promise<Incident> {
+  async acknowledgeIncident(incidentId: string): Promise<IncidentReport> {
     try {
       const updatedIncident = await this.incidentReportRepository.updateIncidentStatus(
         incidentId,
@@ -24,7 +24,7 @@ export class IncidentManagement {
     }
   }
 
-  async resolveIncident(incidentId: string): Promise<Incident> {
+  async resolveIncident(incidentId: string): Promise<IncidentReport> {
     try {
       const updatedIncident = await this.incidentReportRepository.updateIncidentStatus(
         incidentId,
