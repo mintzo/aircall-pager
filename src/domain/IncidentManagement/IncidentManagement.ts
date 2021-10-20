@@ -1,6 +1,6 @@
 import { inject, singleton } from 'tsyringe';
 import { DI_SYMBOLS } from '../../DI_SYMBOLS';
-import { IncidentReport, IncidentReportRepository, IncidentStatus } from '../Repositories/IncidentReportRepository';
+import { IncidentReport, IncidentReportRepository, IncidentStatus } from '../../adapters/repositories/IncidentReportRepository';
 import { Logger } from '../../infrastructure/Logger';
 
 @singleton()

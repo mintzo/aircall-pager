@@ -7,14 +7,11 @@ import {
   IncidentStatus,
   InstanceNotFoundError,
   ServiceAlert,
-} from '../Repositories/IncidentReportRepository';
+} from '../../adapters/repositories/IncidentReportRepository';
 import { Logger } from '../../infrastructure/Logger';
-import { EscalationPolicyRepository } from '../Repositories/EscalationPolicyRepository';
+import { EscalationPolicy, EscalationPolicyRepository } from '../../adapters/repositories/EscalationPolicyRepository';
 import { ContactsPager } from '../ContactsPager/ContactsPager';
-import {
-  EscalationTimerAdapter,
-  IncidentEscalationRequest,
-} from '../Adapters/EscalationTimerAdapter';
+import { EscalationTimerAdapter, IncidentEscalationRequest } from '../../adapters/EscalationTimerAdapter';
 
 @singleton()
 export class PagingCoordinator {
@@ -64,13 +61,13 @@ export class PagingCoordinator {
     }
   }
 
-  private async createNewIncident(alert: ServiceAlert): Promise<IncidentReport> {
+  private async createNewIncident(alert: ServiceAlert, contactsPaged?: boolean): Promise<IncidentReport> {
     const newIncident = await this.incidentReportRepository.createIncident({
       id: uuid(),
       serviceIdentifier: alert.serviceIdentifier,
       type: alert.type,
       message: alert.message,
-      policyLevel: this.STARTING_POLICY_LEVEL,
+      policyLevel: contactsPaged ? this.STARTING_POLICY_LEVEL : this.STARTING_POLICY_LEVEL - 1,
       status: IncidentStatus.NOT_ACKNOWLEDGED,
     });
     return newIncident;
@@ -81,25 +78,51 @@ export class PagingCoordinator {
     return this.escalationTimerAdapter.setEscalationTimer(incident.id);
   }
 
+  private async escalateIncident(incidentToEscalate: IncidentReport, escalationPolicy: EscalationPolicy) {
+    const isLastPolicyLevel = incidentToEscalate.policyLevel + 1 > escalationPolicy.pagingContactsByPolicyLevel.length;
+
+    if (!isLastPolicyLevel) {
+      await this.contactsPager.pageContacts(
+        escalationPolicy.pagingContactsByPolicyLevel[incidentToEscalate.policyLevel + 1],
+      );
+      await this.incidentReportRepository.updateIncidentPolicyLevel(
+        incidentToEscalate.id,
+        incidentToEscalate.policyLevel + 1,
+      );
+    }
+  }
+
   public async processAlert(alert: ServiceAlert) {
     const shouldProcessAlert = await this.isAlertTypeResolved(alert);
     if (shouldProcessAlert) {
-      const newIncident = await this.createNewIncident(alert);
-      const shouldPageContacts = !(await this.areAnyServiceIncidentsAcknowledged(
-        alert.serviceIdentifier,
-      ));
+      const shouldPageContacts = !(await this.areAnyServiceIncidentsAcknowledged(alert.serviceIdentifier));
+      const newIncident = await this.createNewIncident(alert, shouldPageContacts);
       if (shouldPageContacts) {
-        const escalationPolicy = await this.escalationPolicyRepository.getEscalationPolicy(
-          alert.serviceIdentifier,
-        );
-        await this.contactsPager.pageContacts(
-          escalationPolicy.pagingContactsByPolicyLevel[newIncident.policyLevel],
-        );
+        const escalationPolicy = await this.escalationPolicyRepository.getEscalationPolicy(alert.serviceIdentifier);
+        await this.contactsPager.pageContacts(escalationPolicy.pagingContactsByPolicyLevel[newIncident.policyLevel]);
       }
       await this.setEscalationTimer(newIncident);
     }
   }
-  // public async processEscalationRequest(escalationRequest: IncidentEscalationRequest) {
+  public async processEscalationRequest(escalationRequest: IncidentEscalationRequest) {
+    const incidentToEscalate = await this.incidentReportRepository.getIncidentById(escalationRequest.incidentId);
+    const serviceAlertsAcknowledge = await this.areAnyServiceIncidentsAcknowledged(
+      incidentToEscalate.serviceIdentifier,
+    );
 
-  // }
+    const shouldEscalateIncident =
+      incidentToEscalate.status === IncidentStatus.NOT_ACKNOWLEDGED && !serviceAlertsAcknowledge;
+
+    if (shouldEscalateIncident) {
+      const escalationPolicy = await this.escalationPolicyRepository.getEscalationPolicy(
+        incidentToEscalate.serviceIdentifier,
+      );
+      await this.escalateIncident(incidentToEscalate, escalationPolicy);
+    } else {
+      const shouldSnoozeTimer = serviceAlertsAcknowledge;
+      if (shouldSnoozeTimer) {
+        this.setEscalationTimer(incidentToEscalate);
+      }
+    }
+  }
 }

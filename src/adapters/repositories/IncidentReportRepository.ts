@@ -21,11 +21,9 @@ export enum IncidentStatus {
 
 export class InstanceNotFoundError extends Error {}
 export interface IncidentReportRepository {
+  getIncidentById(incidentId: IncidentReport['id']): Promise<IncidentReport>;
   createIncident(newIncident: Omit<IncidentReport, 'createdAt'>): Promise<IncidentReport>;
-  updateIncidentStatus(
-    incidentId: IncidentReport['id'],
-    status: IncidentStatus,
-  ): Promise<IncidentReport>;
+  updateIncidentStatus(incidentId: IncidentReport['id'], status: IncidentStatus): Promise<IncidentReport>;
   updateIncidentPolicyLevel(
     incidentId: IncidentReport['id'],
     level: IncidentReport['policyLevel'],

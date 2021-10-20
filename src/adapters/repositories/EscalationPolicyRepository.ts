@@ -1,11 +1,11 @@
-import { PagingContact } from "../ContactsPager/PagingContact";
+import { PagingContact } from "../../domain/ContactsPager/PagingContact";
 
 export interface EscalationPolicy {
   serviceIdentifier: string;
   pagingContactsByPolicyLevel: [[PagingContact]];
 }
 
-export class PolicyFoundError extends Error {}
+export class PolicyNotFoundError extends Error {}
 
 export interface EscalationPolicyRepository {
   getEscalationPolicy(

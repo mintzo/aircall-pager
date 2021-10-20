@@ -1,4 +1,4 @@
-import { IncidentReport } from '../Repositories/IncidentReportRepository';
+import { IncidentReport } from './repositories/IncidentReportRepository';
 
 export interface IncidentEscalationRequest {
   incidentId: IncidentReport['id'];

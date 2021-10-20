@@ -9,16 +9,17 @@ import {
   IncidentStatus,
   InstanceNotFoundError,
   ServiceAlert,
-} from '../Repositories/IncidentReportRepository';
+} from '../../adapters/repositories/IncidentReportRepository';
 import { DI_SYMBOLS } from '../../DI_SYMBOLS';
-import { EscalationPolicyRepository } from '../Repositories/EscalationPolicyRepository';
+import { EscalationPolicyRepository } from '../../adapters/repositories/EscalationPolicyRepository';
 import { ContactsPager } from '../ContactsPager/ContactsPager';
-import { EscalationTimerAdapter } from '../Adapters/EscalationTimerAdapter';
+import { EscalationTimerAdapter, IncidentEscalationRequest } from '../../adapters/EscalationTimerAdapter';
 
 describe('Paging Coordinator', () => {
   const stubs = {
     logger: { error: stub(), info: stub() } as Logger,
     incidentRepository: {
+      getIncidentById: <any>stub(),
       updateIncidentPolicyLevel: <any>stub(),
       updateIncidentStatus: <any>stub(),
       createIncident: <any>stub(),
@@ -39,24 +40,30 @@ describe('Paging Coordinator', () => {
   const pagingCoordinator = container.resolve(PagingCoordinator);
 
   beforeEach(() => {
+    (<SinonStub>stubs.incidentRepository.getIncidentById).reset();
     (<SinonStub>stubs.incidentRepository.updateIncidentPolicyLevel).reset();
     (<SinonStub>stubs.incidentRepository.updateIncidentStatus).reset();
     (<SinonStub>stubs.incidentRepository.createIncident).reset();
-    (<SinonStub>stubs.incidentRepository.createIncident).resolves({ policyLevel: 0 });
     (<SinonStub>stubs.incidentRepository.getLatestIncidentByServiceAndType).reset();
     (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).reset();
     (<SinonStub>stubs.escalationPolicy.getEscalationPolicy).reset();
     (<SinonStub>stubs.contactPager.pageContacts).reset();
     (<SinonStub>stubs.EscalationTimer.setEscalationTimer).reset();
+
+    (<SinonStub>stubs.incidentRepository.createIncident).resolves({ policyLevel: 0 });
+    (<SinonStub>stubs.escalationPolicy.getEscalationPolicy).resolves({
+      serviceIdentifier: '1',
+      pagingContactsByPolicyLevel: [['contact1'], ['c2', 'c3']],
+    });
   });
 
   describe('Service Alerts', () => {
-    beforeEach(() => {
-      (<SinonStub>stubs.escalationPolicy.getEscalationPolicy).resolves({
-        serviceIdentifier: '1',
-        pagingContactsByPolicyLevel: [['contact']],
-      });
-    });
+    const testAlert: ServiceAlert = {
+      message: 'AlertMessage',
+      serviceIdentifier: '1',
+      type: 'ServerDown',
+    };
+
     describe('Service has an incident of the same type that is resolved', () => {
       beforeEach(() => {
         (<SinonStub>stubs.incidentRepository.getLatestIncidentByServiceAndType).resolves({
@@ -64,18 +71,9 @@ describe('Paging Coordinator', () => {
         });
       });
       test('create an incident, page engineers, and create escalation timer', async () => {
-        (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).rejects(
-          new InstanceNotFoundError(),
-        );
-        const alert: ServiceAlert = {
-          message: 'AlertMessage',
-          serviceIdentifier: '1',
-          type: 'ServerDown',
-        };
-        await pagingCoordinator.processAlert(alert);
-        expect(
-          (<SinonStub>stubs.incidentRepository.createIncident).calledWithMatch(alert),
-        ).toBeTruthy();
+        (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).rejects(new InstanceNotFoundError());
+        await pagingCoordinator.processAlert(testAlert);
+        expect((<SinonStub>stubs.incidentRepository.createIncident).calledWithMatch(testAlert)).toBeTruthy();
         expect((<SinonStub>stubs.contactPager.pageContacts).called).toBeTruthy();
         expect((<SinonStub>stubs.EscalationTimer.setEscalationTimer).called).toBeTruthy();
       });
@@ -92,27 +90,15 @@ describe('Paging Coordinator', () => {
         (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).resolves({
           status: IncidentStatus.ACKNOWLEDGED,
         });
-        const alert: ServiceAlert = {
-          message: 'AlertMessage',
-          serviceIdentifier: '1',
-          type: 'ServerDown',
-        };
-        await pagingCoordinator.processAlert(alert);
-        expect(
-          (<SinonStub>stubs.incidentRepository.createIncident).calledWithMatch(alert),
-        ).toBeTruthy();
+        await pagingCoordinator.processAlert(testAlert);
+        expect((<SinonStub>stubs.incidentRepository.createIncident).calledWithMatch(testAlert)).toBeTruthy();
         expect((<SinonStub>stubs.contactPager.pageContacts).called).toBeFalsy();
         expect((<SinonStub>stubs.EscalationTimer.setEscalationTimer).called).toBeTruthy();
       });
     });
 
     const ignoreAlert = async () => {
-      const alert: ServiceAlert = {
-        message: 'AlertMessage',
-        serviceIdentifier: '1',
-        type: 'ServerDown',
-      };
-      await pagingCoordinator.processAlert(alert);
+      await pagingCoordinator.processAlert(testAlert);
       expect((<SinonStub>stubs.incidentRepository.createIncident).called).toBeFalsy();
       expect((<SinonStub>stubs.contactPager.pageContacts).called).toBeFalsy();
       expect((<SinonStub>stubs.EscalationTimer.setEscalationTimer).called).toBeFalsy();
@@ -136,11 +122,42 @@ describe('Paging Coordinator', () => {
   });
 
   describe('Incident escalation timer', () => {
+    const testEscalationRequest: IncidentEscalationRequest = { incidentId: '1' };
     describe('Service has an incident that is not acknowledged', () => {
-      test('update incident policy level, page engineers, and create escalation timer', () => {});
+      beforeEach(() => {
+        (<SinonStub>stubs.incidentRepository.getIncidentById).resolves({
+          id: testEscalationRequest.incidentId,
+          status: IncidentStatus.NOT_ACKNOWLEDGED,
+          policyLevel: 0,
+        });
+      });
+      test('update incident policy level, page engineers, and create escalation timer', async () => {
+        (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).rejects(new InstanceNotFoundError());
+        await pagingCoordinator.processEscalationRequest(testEscalationRequest);
+        expect((<SinonStub>stubs.escalationPolicy.getEscalationPolicy).called).toBeTruthy();
+        expect((<SinonStub>stubs.contactPager.pageContacts).called).toBeTruthy();
+        expect(
+          (<SinonStub>stubs.incidentRepository.updateIncidentPolicyLevel).calledWith(
+            testEscalationRequest.incidentId,
+            1,
+          ),
+        ).toBeTruthy();
+      });
     });
     describe('Service has no incidents that are not acknowledged', () => {
-      test('ignore timer escalation request', () => {});
+      beforeEach(() => {
+        (<SinonStub>stubs.incidentRepository.getIncidentById).resolves({
+          id: testEscalationRequest.incidentId,
+          status: IncidentStatus.RESOLVED,
+        });
+      });
+      test('ignore timer escalation request', async () => {
+        (<SinonStub>stubs.incidentRepository.getLatestIncidentByStatus).rejects(new InstanceNotFoundError());
+        await pagingCoordinator.processEscalationRequest(testEscalationRequest);
+        expect((<SinonStub>stubs.escalationPolicy.getEscalationPolicy).called).toBeFalsy();
+        expect((<SinonStub>stubs.contactPager.pageContacts).called).toBeFalsy();
+        expect((<SinonStub>stubs.incidentRepository.updateIncidentPolicyLevel).called).toBeFalsy();
+      });
     });
   });
 });
