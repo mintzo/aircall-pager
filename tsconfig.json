@@ -1,0 +1,25 @@
+{
+    "include": [
+        "src/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist",
+        "**/__tests__",
+        "**/__mocks__",
+        "**/*.spec.ts",
+        "**/*.test.ts"
+    ],
+    "compilerOptions": {
+        "target": "es2019",
+        "module": "CommonJS",
+        "sourceMap": false,
+        "removeComments": true,
+        "strict": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+    }
+}
