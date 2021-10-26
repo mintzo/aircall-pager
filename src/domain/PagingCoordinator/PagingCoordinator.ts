@@ -104,6 +104,7 @@ export class PagingCoordinator {
       await this.setEscalationTimer(newIncident);
     }
   }
+  
   public async processEscalationRequest(escalationRequest: IncidentEscalationRequest) {
     const incidentToEscalate = await this.incidentReportRepository.getIncidentById(escalationRequest.incidentId);
     const serviceAlertsAcknowledge = await this.areAnyServiceIncidentsAcknowledged(
@@ -111,18 +112,17 @@ export class PagingCoordinator {
     );
 
     const shouldEscalateIncident =
-      incidentToEscalate.status === IncidentStatus.NOT_ACKNOWLEDGED && !serviceAlertsAcknowledge;
+      (incidentToEscalate.status === IncidentStatus.NOT_ACKNOWLEDGED) && (!serviceAlertsAcknowledge);
 
     if (shouldEscalateIncident) {
       const escalationPolicy = await this.escalationPolicyRepository.getEscalationPolicy(
         incidentToEscalate.serviceIdentifier,
       );
       await this.escalateIncident(incidentToEscalate, escalationPolicy);
-    } else {
-      const shouldSnoozeTimer = serviceAlertsAcknowledge;
-      if (shouldSnoozeTimer) {
-        this.setEscalationTimer(incidentToEscalate);
-      }
+    }
+    const shouldSnoozeTimer = incidentToEscalate.status == IncidentStatus.NOT_ACKNOWLEDGED;
+    if (shouldSnoozeTimer) {
+      this.setEscalationTimer(incidentToEscalate);
     }
   }
 }
